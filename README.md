@@ -7,10 +7,9 @@
 
 ## ▶ 실행
 
-`sim.html`을 브라우저로 열거나, 아래 GitHub Pages 링크로 접속하세요.
+위 GitHub Pages 링크로 접속하거나 `index.html`을 브라우저에서 여세요.
 
-- **sim.html** — 실시간 시뮬레이션 콘솔 (500 에이전트 전동 차량 군집)
-- **index.html** — 제품 소개 랜딩 페이지
+- **index.html** — 실시간 시뮬레이션 콘솔 (500 에이전트 전동 차량 군집)
 
 의존성 없는 단일 HTML 파일(폰트만 Google Fonts, 오프라인 시 시스템 폰트 폴백).
 

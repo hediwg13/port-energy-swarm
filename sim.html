@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Port Energy Swarm — Simulation Console</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0e; --side:#0e1013; --panel:#121419; --panel2:#16181e; --raise:#1b1e25;
+  --line:#1f232b; --line2:#2a2f3a;
+  --txt:#eceef2; --sub:#9aa1ad; --dim:#5f6672;
+  --ok:#4cc38a; --warn:#e8a33d; --bad:#e5657e; --info:#6c9ef8; --node:#a3a8f0;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter','Noto Sans KR',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px;
+  -webkit-font-smoothing:antialiased}
+
+/* ================= 레이아웃 ================= */
+#app{display:grid;grid-template-columns:208px 1fr 300px;grid-template-rows:48px 1fr;height:100vh}
+header{grid-column:1/4;display:flex;align-items:center;gap:16px;padding:0 16px;
+  background:var(--side);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:13px;letter-spacing:-.01em}
+.brand svg{display:block}
+.brand .chip{font-family:var(--mono);font-size:9.5px;color:var(--dim);border:1px solid var(--line2);
+  padding:2px 6px;border-radius:2px;font-weight:400;margin-left:2px}
+/* 세그먼트 컨트롤 */
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:2px;gap:2px}
+.seg button{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;padding:4px 11px;border-radius:2px;
+  cursor:pointer;border:none;background:transparent;color:var(--dim);transition:.15s}
+.seg button:hover{color:var(--sub)}
+.seg button.on{background:var(--raise);color:var(--txt);box-shadow:inset 0 0 0 1px var(--line2)}
+.clock{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.clock b{color:var(--txt);font-weight:500}
+.btn-run{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;padding:5px 13px;border-radius:2px;cursor:pointer;
+  border:1px solid var(--line2);background:transparent;color:var(--sub);transition:.15s}
+.btn-run:hover{color:var(--ok);border-color:rgba(76,195,138,.4)}
+
+/* 사이드바 */
+aside{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
+.nav-sec{font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.14em;padding:16px 16px 6px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:7px 16px;color:var(--sub);cursor:pointer;
+  border-left:2px solid transparent;transition:.12s;font-size:12.5px}
+.nav-item:hover{color:var(--txt);background:rgba(255,255,255,.025)}
+.nav-item.on{color:var(--txt);border-left-color:var(--txt);background:rgba(255,255,255,.04);font-weight:500}
+.nav-item svg{flex:none;opacity:.75}
+.nav-item.on svg{opacity:1}
+.side-block{margin-top:auto;border-top:1px solid var(--line);padding:12px 16px 14px}
+.sys-row{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:10px;color:var(--dim);padding:3px 0}
+.sys-row b{font-weight:400;color:var(--sub)}
+.sys-row .ok{color:var(--ok)} .sys-row .warn{color:var(--warn)}
+.led{display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:6px}
+
+/* 메인 */
+main{display:grid;grid-template-rows:1fr 158px;overflow:hidden}
+.d.up{color:var(--bad)} .d.dn{color:var(--ok)} .d.mut{color:var(--dim)}
+#map-wrap{position:relative;margin:0;border:none;overflow:hidden;background:#0b0d11;box-shadow:inset 0 -1px 0 var(--line)}
+#map{display:block;width:100%;height:100%}
+.map-hud{position:absolute;top:10px;left:12px;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  pointer-events:none;line-height:1.9;letter-spacing:.03em}
+.map-hud b{color:var(--sub);font-weight:500}
+.map-legend{position:absolute;bottom:10px;left:12px;display:flex;gap:13px;font-size:10.5px;color:var(--sub);
+  background:rgba(10,11,14,.82);padding:5px 11px;border-radius:2px;border:1px solid var(--line);backdrop-filter:blur(6px)}
+.map-legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+.tbl-wrap{margin:0;border:none;overflow:hidden;background:var(--side)}
+.tbl-head{display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--side)}
+.tbl-head span{font-size:11px;font-weight:500;color:var(--sub)}
+.tbl-head .mono{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.06em}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{font-family:var(--mono);font-size:9px;color:var(--dim);text-align:right;padding:7px 16px;letter-spacing:.1em;
+  border-bottom:1px solid var(--line);font-weight:400;text-transform:uppercase}
+th:first-child{text-align:left}
+td{padding:6px 16px;border-bottom:1px solid rgba(31,35,43,.5);text-align:right;
+  font-family:var(--mono);font-size:10.5px;font-variant-numeric:tabular-nums;color:var(--sub)}
+td:first-child{text-align:left;font-family:var(--sans);color:var(--sub)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.015)}
+.bar-cell{display:inline-block;height:3px;border-radius:2px;vertical-align:2px;margin-left:7px}
+
+/* 우측 패널 */
+.right{background:var(--side);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
+.rp{border-bottom:1px solid var(--line);padding:11px 13px 12px}
+.rp h5{font-size:10px;font-weight:500;color:var(--sub);display:flex;align-items:baseline;margin-bottom:9px;
+  letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono)}
+.rp h5 .mono{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--dim);font-weight:400;letter-spacing:.05em}
+.rp canvas{display:block;width:100%}
+#evlog{font-family:var(--mono);font-size:9.8px;line-height:2.05;flex:1;overflow-y:auto;padding:8px 13px}
+#evlog div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#evlog .t{color:var(--dim);margin-right:7px}
+#evlog .ok{color:var(--ok)} #evlog .w{color:var(--warn)} #evlog .i{color:var(--sub)}
+#evlog .e{color:var(--info)} #evlog .x{color:var(--bad)}
+.log-head{padding:9px 13px 4px;font-size:10.5px;font-weight:500;color:var(--sub);display:flex}
+.log-head .mono{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--dim);font-weight:400}
+::-webkit-scrollbar{width:8px} ::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="1.5" y="1.5" width="17" height="17" rx="4.5" stroke="#2a2f3a"/>
+        <circle cx="7" cy="7" r="2" fill="#eceef2"/>
+        <circle cx="13.5" cy="9.5" r="1.5" fill="#6c9ef8"/>
+        <circle cx="9" cy="13.5" r="1.5" fill="#4cc38a"/>
+        <path d="M7 7L13.5 9.5L9 13.5Z" stroke="#2a2f3a" stroke-width=".8"/>
+      </svg>
+      <span>Port&nbsp;Energy&nbsp;Swarm</span><span class="chip">v0.4 · MVP</span>
+    </div>
+    <div class="seg" id="scn-group">
+      <button class="on" data-scn="baseline">BASELINE</button>
+      <button data-scn="ev80">EV-80%</button>
+      <button data-scn="chargers14">CHG-14</button>
+      <button data-scn="smart">SMART+ESS</button>
+    </div>
+    <div class="clock">SIM <b id="simclock">T+00:00:00</b>&ensp;·&ensp;×<span id="speedlab">15</span></div>
+    <button class="btn-run" id="runbtn">PAUSE</button>
+  </header>
+
+  <aside>
+    <div class="nav-sec">MONITORING</div>
+    <div class="nav-item on">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/></svg>
+      <span>오버뷰</span></div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="3.5" cy="3.5" r="1.4"/><circle cx="8" cy="3.5" r="1.4"/><circle cx="12.5" cy="3.5" r="1.4"/><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/><circle cx="5.8" cy="12.5" r="1.4"/><circle cx="10.2" cy="12.5" r="1.4"/></svg>
+      <span>에이전트 군집</span></div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5 4 9h3l-1 5.5L11 7H8l1-5.5Z"/></svg>
+      <span>에너지 그리드</span></div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 12.5h10M5.5 12.5V6.5M8 12.5V4M10.5 12.5V8"/></svg>
+      <span>선석 / 하역</span></div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2 4.5h12M2 8h8M2 11.5h5"/></svg>
+      <span>운송 작업</span></div>
+    <div class="nav-sec">ANALYSIS</div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14 8 2l6 12M4.8 9.5h6.4"/></svg>
+      <span>시나리오 비교</span></div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2 14h12M4.5 11.5v-4M8 11.5V4M11.5 11.5V7"/></svg>
+      <span>투자 타당성</span></div>
+    <div class="nav-item">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2 4.5h12M2 8h12M2 11.5h12"/></svg>
+      <span>디지털 트윈 설정</span></div>
+    <div class="side-block">
+      <div class="nav-sec" style="padding:0 0 6px">SYSTEM</div>
+      <div class="sys-row"><span><i class="led" style="background:var(--ok)"></i>엔진</span><b class="ok">Mesa·SimPy</b></div>
+      <div class="sys-row"><span><i class="led" style="background:var(--ok)"></i>전력망</span><b class="ok">pandapower</b></div>
+      <div class="sys-row"><span><i class="led" style="background:var(--warn)"></i>그래프</span><b class="warn">NetworkX</b></div>
+      <div class="sys-row"><span>틱 레이트</span><b id="tickrate">60/s</b></div>
+      <div class="sys-row"><span>빌드</span><b>48h-MVP</b></div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="map-wrap">
+      <canvas id="map"></canvas>
+      <div class="map-hud">
+        <b>부산항 · 신항 단지</b> 디지털 트윈 · GRID 132kV · <span id="hud-scn">BASELINE</span><br>
+        PEAK <b id="k-peak">—</b>&ensp;·&ensp;LOAD <b id="k-load">—</b>&ensp;·&ensp;P90 <b id="k-wait">—</b>&ensp;·&ensp;QUEUE <b id="k-queue">—</b>
+      </div>
+      <div class="map-legend">
+        <span><i style="background:#60a5fa"></i>AGV</span>
+        <span><i style="background:#46c78c"></i>야드트랙터</span>
+        <span><i style="background:#eceef2"></i>전기트럭</span>
+        <span><i style="background:#e8a33d"></i>충전중/대기</span>
+        <span><i style="background:#a3a8f0"></i>충전소</span>
+        <span><i style="background:#f87171"></i>선박·AMP</span>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-head"><span>충전소 노드 상태</span><span class="mono">PANDAPOWER · PP-CHARGER-NODES · REALTIME</span></div>
+      <table>
+        <thead><tr><th>NODE</th><th>CAPACITY</th><th>CHARGING</th><th>QUEUE</th><th>UTIL</th><th>LOAD kW</th><th>STATUS</th></tr></thead>
+        <tbody id="chgtbl"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="right">
+    <div class="rp"><h5>전력 부하 곡선 <span class="mono">MW · 1MIN</span></h5><canvas id="c-load" height="86"></canvas></div>
+    <div class="rp"><h5>충전 대기열 추이 <span class="mono">VEH · 1MIN</span></h5><canvas id="c-queue" height="70"></canvas></div>
+    <div class="rp"><h5>SOC 분포 <span class="mono">BATTERY · %</span></h5><canvas id="c-soc" height="70"></canvas></div>
+    <div class="log-head">이벤트 로그 <span class="mono">STREAM</span></div>
+    <div id="evlog"></div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   Port Energy Swarm — 실시간 에이전트 시뮬레이션 콘솔
+   로직: 에이전트(SOC/상태기계) + 충전소(대기열) + 선박(하역) + 전력합산
+================================================================ */
+const $=id=>document.getElementById(id);
+
+/* ---------- 시나리오 정의 ---------- */
+const SCN={
+  baseline:{label:'BASELINE',   ev:0.25, chargers:8,  smart:false, ess:false, gridCap:12},
+  ev80:    {label:'EV-80%',     ev:0.80, chargers:8,  smart:false, ess:false, gridCap:12},
+  chargers14:{label:'CHG-14',   ev:0.80, chargers:14, smart:false, ess:false, gridCap:16},
+  smart:   {label:'SMART+ESS',  ev:0.80, chargers:14, smart:true,  ess:true,  gridCap:16},
+};
+let scnKey='baseline',S=SCN[scnKey];
+
+/* ---------- 시계 ---------- */
+let simSec=0, running=true, speed=15; // ×25 가속
+let simClockH=0,simClockM=0;
+
+/* ---------- 에이전트 ---------- */
+const TYPES=[{k:'agv',c:'#6c9ef8',n:0.42},{k:'yt',c:'#46c78c',n:0.30},{k:'truck',c:'#eceef2',n:0.28}];
+let agents=[];
+function initAgents(){
+  agents=[];
+  const total=500;
+  for(let i=0;i<total;i++){
+    let r=Math.random(),ty=TYPES[2];
+    if(r<0.42)ty=TYPES[0]; else if(r<0.72)ty=TYPES[1];
+    const electric=true; /* 전동차량만 */
+    const hi=i%yardAnchors.length;
+    const home=yardAnchors[hi];
+    agents.push({
+      id:i, type:ty.k, col:electric?ty.c:'#64748b', electric,
+      hi, home:{x:home.x,y:home.y},
+      x:home.x+R(-40,40), y:home.y+R(-28,28),
+      soc:electric?0.40+Math.random()*0.55:1,
+      state:'work', jobTimer:R(20,120),
+      tgt:null, wp:[], chgNode:null, waitStart:0, waits:[]
+    });
+  }
+}
+/* ---------- 충전소 ---------- */
+let nodes=[];
+function initNodes(){
+  nodes=[];
+  const per=Math.ceil(S.chargers/2);
+  for(let i=0;i<S.chargers;i++){
+    const col=i%2, row=Math.floor(i/2);
+    nodes.push({
+      id:'C'+String(i+1).padStart(2,'0'),
+      x:930+col*84, y:160+row*(360/Math.max(1,Math.ceil(S.chargers/2)-1||1)),
+      cap:2+(i%2), charging:[], queue:[], kw:0
+    });
+  }
+  // 위치 재계산 (세로 균등)
+  const rows=Math.ceil(S.chargers/2);
+  nodes.forEach((n,i)=>{n.x=960+(i%2)*70; n.y=200+Math.floor(i/2)*(300/(rows-1||1))});
+}
+/* ---------- 선박 ---------- */
+let vessels=[
+  {n:'MV OCEAN-7', eta:0, amp:true,  prog:0, x:150,y:52},
+  {n:'MV HARMONY-3',eta:35, amp:true, prog:0, x:420,y:52},
+  {n:'MV BUSAN-9',  eta:90, amp:false,prog:0, x:690,y:52},
+];
+/* ---------- 통계 ---------- */
+let loadHist=[], queueHist=[], peak=0, loadNow=0, jobsDone=0, jobsMissed=0, curQueue=0, curChg=0;
+
+/* ---------- 로그 ---------- */
+const evlog=$('evlog');
+function log(cls,msg){
+  const hh=String(simClockH).padStart(2,'0'),mm=String(simClockM).padStart(2,'0');
+  const d=document.createElement('div');
+  d.innerHTML=`<span class="t">${hh}:${mm}</span><span class="${cls}">${msg}</span>`;
+  evlog.prepend(d);
+  while(evlog.children.length>60)evlog.lastChild.remove();
+}
+const R=(a,b)=>a+Math.random()*(b-a)|0;
+const pick=a=>a[Math.random()*a.length|0];
+
+/* ---------- 앵커: 야드 블록/게이트 ---------- */
+const yardAnchors=[];
+for(let gx=0;gx<6;gx++)for(let gy=0;gy<3;gy++)
+  yardAnchors.push({x:120+gx*130, y:210+gy*120});
+
+function nearest(arr,v){let b=arr[0],bd=Math.abs(v-b);
+  for(const x of arr){const d=Math.abs(v-x);if(d<bd){bd=d;b=x}}return b}
+/* 통로 그리드: 세로 통로(블록 사이) + 가로 레인 + 우측 충전 복도 */
+const AISLE_X=[185,315,445,575,705,935], LANE_Y=[270,390,515];
+function routeTo(a,dest){
+  const wps=[];
+  const ax0=nearest(AISLE_X,a.x);
+  wps.push({x:ax0,y:a.y});            /* 블록 밖 세로 통로로 진출 */
+  const ay=nearest(LANE_Y,dest.y);
+  wps.push({x:ax0,y:ay});             /* 가로 레인으로 */
+  const ax1=nearest(AISLE_X,dest.x);
+  wps.push({x:ax1,y:ay});             /* 목적지 쪽 세로 통로로 */
+  wps.push({x:ax1,y:dest.y});
+  wps.push({x:dest.x,y:dest.y});
+  return wps;
+}
+
+function moveAlong(a,sp){
+  const t=a.wp.length?a.wp[0]:a.tgt;
+  if(!t)return;
+  const dx=t.x-a.x,dy=t.y-a.y,d=Math.hypot(dx,dy)||1;
+  if(d<6){ if(a.wp.length)a.wp.shift(); return; }
+  a.x+=dx/d*sp; a.y+=dy/d*sp;
+}
+
+/* ================================================================
+   시뮬레이션 스텝 (dt=1초 시뮜)
+================================================================ */
+function step(){
+  simSec++;
+  simClockM=Math.floor(simSec/60)%60; simClockH=Math.floor(simSec/3600);
+
+  /* --- 선박 --- */
+  vessels.forEach(v=>{
+    if(v.eta>0){v.eta-=1/60; if(v.eta<=0)log('e',`⚓ ${v.n} 접안 완료 — AMP ${v.amp?'연결':'미연결'}`)}
+    else if(v.prog<100){v.prog+=R(8,20)/60; if(v.prog>=100){v.prog=100;log('e',`⚓ ${v.n} 하역 완료 — 출항`);setTimeout(()=>{v.prog=0;v.eta=R(40,120)},100)}}
+  });
+
+  /* --- 에이전트: 야드 블록 ↔ 충전소 정형 셔틀 동선 --- */
+  let queueCnt=0, chgCnt=0, socSum=0, socN=0, kwSum=0;
+  nodes.forEach(n=>{n.queue=[]});
+
+  agents.forEach(a=>{
+    /* 방전 */
+    if(a.state==='work'||a.state==='move'){a.soc-=0.0028*R(7,13)/10}
+
+    /* 작업(자기 블록에서 체류) → 간헐적 인접 블록 이동 */
+    if(a.state==='work'){
+      a.jobTimer--;
+      if(a.jobTimer<=0){
+        if(Math.random()<0.22){
+          const cand=[a.hi-1,a.hi+1,a.hi-6,a.hi+6].filter(k=>k>=0&&k<yardAnchors.length&&k!==a.hi);
+          if(cand.length){a.hi=pick(cand);a.home=yardAnchors[a.hi]}
+        }
+        a.tgt={x:a.home.x+R(-30,30), y:a.home.y+R(-26,26)};
+        a.wp=routeTo(a,a.tgt);
+        a.state='move';
+      }
+    }
+    else if(a.state==='move'){
+      if(a.tgt&&Math.hypot(a.x-a.tgt.x,a.y-a.tgt.y)<7){
+        a.state='work';a.jobTimer=R(40,140);
+        jobsDone++;
+        if(Math.random()<0.03)log('ok',`✓ 작업 완료 — ${a.type.toUpperCase()}#${a.id} · ${['CY-A','CY-B','CY-C'][Math.floor(a.hi/6)]}${a.hi%6+1}`);
+      }
+    }
+
+    /* 충전 필요 → 우측 복도 경유 */
+    if((a.state==='work'||a.state==='move')&&a.soc<0.28){
+      let best=null,bd=1e9;
+      nodes.forEach(n=>{
+        const free=n.cap-n.charging.length;
+        const q=Math.abs(n.y-a.y)+(free<=0?2500:0)-free*200+n.queue.length*(S.smart?60:130);
+        if(q<bd){bd=q;best=n}});
+      a.chgNode=best; a.state='queue'; a.waitStart=simSec;
+      a.tgt={x:best.x-26+Math.random()*8, y:best.y+(Math.random()*44-22)};
+      a.wp=routeTo(a,a.tgt);
+    }
+
+    /* 이동 */
+    moveAlong(a,3);
+
+    /* 충전소 처리 */
+    if(a.state==='queue'){
+      const n=a.chgNode;
+      n.queue.push(a);
+      const arrived=a.wp.length===0&&Math.hypot(a.x-a.tgt.x,a.y-a.tgt.y)<10;
+      if(arrived&&n.charging.length<n.cap){
+        n.charging.push(a);a.state='charge';
+        const w=(simSec-a.waitStart)/60;
+        a.waits.push(w);
+        if(w>12){
+          jobsMissed++;
+          log('x',`✗ 납기 지연 — ${n.id} 대기 ${w.toFixed(0)}min · ${a.type.toUpperCase()}#${a.id}`);
+        } else if(w>6&&Math.random()<0.3)log('w',`⚠ ${n.id} 대기 ${w.toFixed(0)}min — ${a.type.toUpperCase()}#${a.id}`);
+      } else if(arrived&&Math.random()<0.08){
+        const alt=nodes.filter(x=>x.charging.length<x.cap&&x!==n);
+        if(alt.length){const nb=pick(alt);a.chgNode=nb;
+          a.tgt={x:nb.x-26+Math.random()*8, y:nb.y+(Math.random()*44-22)};
+          a.wp=routeTo(a,a.tgt)}
+      }
+    }
+    else if(a.state==='charge'){
+      const rate=S.smart?120:300;
+      a.soc=Math.min(1,a.soc+rate/60/280);
+      if(a.soc>=0.92){
+        const n=a.chgNode;n.charging=n.charging.filter(x=>x!==a);
+        a.state='move';a.chgNode=null;
+        a.tgt={x:a.home.x+R(-30,30), y:a.home.y+R(-26,26)};
+        a.wp=routeTo(a,a.tgt);
+        if(Math.random()<0.15)log('i',`▸ ${n.id} 충전 완료 — SOC 92% · 복귀`);
+      }
+    }
+    if(a.state==='queue')queueCnt++;
+    if(a.state==='charge')chgCnt++;
+    socSum+=a.soc;socN++;
+  });
+  curQueue=queueCnt; curChg=chgCnt;
+
+  /* --- 노드 전력 --- */
+  nodes.forEach(n=>{
+    n.kw=n.charging.reduce((s,a)=>s+(S.smart?120:300),0);
+    kwSum+=n.kw;
+  });
+  const ampKW=vessels.filter(v=>v.amp&&v.eta<=0).length*900;
+  const essDischarge=S.ess&&loadNow>9?1500:0;
+  loadNow=(kwSum+ampKW-essDischarge)/1000;
+  peak=Math.max(peak,loadNow);
+
+  /* --- 5분마다 히스토리 --- */
+  if(simSec%60===0){
+    loadHist.push(+loadNow.toFixed(2)); if(loadHist.length>120)loadHist.shift();
+    queueHist.push(queueCnt); if(queueHist.length>120)queueHist.shift();
+  }
+
+  /* --- 실간 지표 (맵 HUD) --- */
+  const allWaits=agents.flatMap(a=>a.waits);
+  const p90=allWaits.length?allWaits.sort((a,b)=>a-b)[Math.floor(allWaits.length*0.9)]:0;
+  $('k-peak').textContent=peak.toFixed(1)+' MW';
+  $('k-load').textContent=loadNow.toFixed(1)+' MW';
+  $('k-load').style.color=loadNow>S.gridCap*0.85?'var(--bad)':'';
+  $('k-wait').textContent=p90.toFixed(0)+' min';
+  $('k-queue').textContent=queueCnt+'대';
+  $('hud-scn').textContent=S.label;
+  const hh=String(simClockH).padStart(2,'0'),mm=String(simClockM).padStart(2,'0'),ss=String(simSec%60).padStart(2,'0');
+  $('simclock').textContent=`T+${hh}:${mm}:${ss}`;
+}
+
+/* ================================================================
+   렌더 — 메인 캔버스
+================================================================ */
+const cv=$('map'),ctx=cv.getContext('2d');
+let CW=800,CH=500;
+function fitMap(){
+  const r=cv.parentElement.getBoundingClientRect();
+  const dpr=devicePixelRatio||1;
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  cv.style.height=r.height+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  CW=r.width;CH=r.height;
+  // 월드 좌표계: 설계 1200x560 → 화면 스케일
+}
+const wx=x=>x/1200*CW, wy=y=>y/560*CH;
+
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+const CONT=['#b3593f','#41699e','#3f9b7a','#b08d3f','#6f7683','#8a4f5e','#7c5cb3'];
+
+function drawMap(){
+  ctx.clearRect(0,0,CW,CH);
+
+  /* ================= 해역 (조감) ================= */
+  ctx.clearRect(0,0,CW,CH);
+  const sg=ctx.createLinearGradient(0,0,0,wy(108));
+  sg.addColorStop(0,'rgba(47,110,230,.38)');sg.addColorStop(.65,'rgba(47,110,230,.18)');sg.addColorStop(1,'rgba(47,110,230,.07)');
+  ctx.fillStyle=sg;ctx.fillRect(0,0,CW,wy(108));
+  ctx.lineWidth=1;
+  for(let k=0;k<4;k++){
+    ctx.strokeStyle=`rgba(140,185,255,${.17-k*.03})`;
+    ctx.setLineDash([16,30]);ctx.lineDashOffset=-(simSec*(5+k*2))%46;
+    ctx.beginPath();ctx.moveTo(0,wy(12+k*24));ctx.lineTo(CW,wy(12+k*24));ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  /* 방파제 + 등대 */
+  ctx.strokeStyle='rgba(220,230,245,.35)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(wx(1010),wy(4));ctx.lineTo(wx(1130),wy(94));ctx.stroke();ctx.lineWidth=1;
+  ctx.fillStyle='rgba(232,163,61,.95)';ctx.beginPath();ctx.arc(wx(1006),wy(4),2.6,0,7);ctx.fill();
+  ctx.fillStyle='rgba(190,205,225,.55)';ctx.font='8px JetBrains Mono';ctx.textAlign='left';
+  ctx.fillText('BREAKWATER',wx(1046),wy(36));
+  /* 예선 */
+  ctx.fillStyle='rgba(219,228,240,.45)';ctx.fillRect(wx(945),wy(48),12,4);
+  ctx.fillStyle='rgba(190,205,225,.6)';ctx.font='8.5px JetBrains Mono';
+  ctx.fillText('SEA — 접안수역',12,13);
+
+  /* ================= 접안 선박 (조감형) ================= */
+  const berthX=[180,470,760];
+  vessels.forEach((v,i)=>{
+    const cx0=wx(berthX[i]);
+    const bob=0;
+    const appr=v.eta>0;
+    const hy=wy(84+bob);
+    const L=wx(118),W2=wy(9);
+    ctx.fillStyle=appr?'rgba(229,101,126,.28)':'rgba(210,82,104,.88)';
+    roundRect(ctx,cx0-L/2,hy-W2,L,W2*2,5);ctx.fill();
+    if(!appr){
+      for(let r=0;r<2;r++)for(let c=0;c<8;c++){
+        ctx.fillStyle=CONT[(i*3+r*8+c)%CONT.length];ctx.globalAlpha=.8;
+        ctx.fillRect(cx0-L/2+wx(16)+c*(L-wx(32))/8, hy-W2+3+r*(W2*2-8)/2,(L-wx(32))/8-2,(W2*2-8)/2-2);
+        ctx.globalAlpha=1;
+      }
+    }
+    ctx.fillStyle='rgba(235,240,248,.92)';
+    ctx.fillRect(cx0+L/2-wx(13),hy-W2,wx(10),W2*2);
+    ctx.strokeStyle='rgba(200,214,232,.4)';
+    ctx.beginPath();
+    ctx.moveTo(cx0-L/2+8,hy+W2);ctx.lineTo(cx0-L/2+3,wy(110));
+    ctx.moveTo(cx0+L/2-8,hy+W2);ctx.lineTo(cx0+L/2-3,wy(110));
+    ctx.stroke();
+    if(v.amp&&!appr){
+      ctx.strokeStyle='rgba(163,168,240,.85)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(cx0-L/2+wx(24),hy-W2);ctx.lineTo(cx0-L/2+wx(10),wy(118));ctx.stroke();ctx.lineWidth=1;
+      ctx.fillStyle='rgba(163,168,240,.95)';ctx.fillRect(cx0-L/2+wx(6),wy(116),5,4);
+    }
+    ctx.fillStyle='rgba(219,228,240,.7)';ctx.font='7px JetBrains Mono';ctx.textAlign='center';
+    ctx.fillText(appr?`${v.n} ${v.eta.toFixed(0)}m`:`${v.n} ${v.prog.toFixed(0)}%`,cx0,hy-W2-5);
+    ctx.textAlign='left';
+  });
+
+  /* ================= 안벽 (QUAY) ================= */
+  ctx.fillStyle='rgba(205,218,236,.07)';ctx.fillRect(0,wy(108),CW,wy(18));
+  ctx.strokeStyle='rgba(225,235,250,.5)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,wy(108));ctx.lineTo(CW,wy(108));ctx.stroke();ctx.lineWidth=1;
+  for(let b0=40;b0<1180;b0+=64){
+    ctx.fillStyle='rgba(225,235,250,.45)';ctx.beginPath();ctx.arc(wx(b0),wy(112),1.8,0,7);ctx.fill();
+  }
+  ctx.fillStyle='rgba(190,205,225,.6)';ctx.font='8.5px JetBrains Mono';
+  ctx.fillText('BERTH 1·2·3 — QUAY · 안벽',12,wy(121));
+
+  /* ================= STS 크레인 ================= */
+  [255,545,835].forEach((cx1,i)=>{
+    const bx=wx(cx1);
+    ctx.strokeStyle='rgba(212,224,240,.8)';ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(bx-wx(20),wy(126));ctx.lineTo(bx-wx(20),wy(78));
+    ctx.moveTo(bx+wx(20),wy(126));ctx.lineTo(bx+wx(20),wy(78));
+    ctx.moveTo(bx-wx(24),wy(78));ctx.lineTo(bx+wx(38),wy(78));
+    ctx.moveTo(bx-wx(24),wy(78));ctx.lineTo(bx-wx(24),wy(86));
+    ctx.moveTo(bx+wx(38),wy(78));ctx.lineTo(bx+wx(38),wy(84));
+    ctx.stroke();ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(212,224,240,.35)';
+    ctx.beginPath();ctx.moveTo(bx-wx(20),wy(112));ctx.lineTo(bx+wx(20),wy(88));
+    ctx.moveTo(bx+wx(20),wy(112));ctx.lineTo(bx-wx(20),wy(88));ctx.stroke();
+    const tx0=bx-wx(18)+wx(10+i*8);
+    ctx.fillStyle='rgba(232,163,61,.95)';ctx.fillRect(tx0-3,wy(74),7,4.5);
+    const drop=wy(17);
+    ctx.strokeStyle='rgba(232,163,61,.6)';
+    ctx.beginPath();ctx.moveTo(tx0,wy(79));ctx.lineTo(tx0,wy(77)+drop);ctx.stroke();
+    ctx.fillStyle=CONT[(i*2+((simSec/3)|0))%CONT.length];ctx.globalAlpha=.9;
+    ctx.fillRect(tx0-4,wy(77)+drop,9,5);ctx.globalAlpha=1;
+  });
+
+  /* ================= 반출입장 (APRON) ================= */
+  ctx.fillStyle='rgba(255,255,255,.02)';ctx.fillRect(0,wy(126),CW,wy(20));
+  ctx.fillStyle='rgba(150,165,185,.45)';ctx.font='8px JetBrains Mono';
+  ctx.fillText('APRON — 반출입장',12,wy(140));
+
+  /* ================= 야드 레인 ================= */
+  [270,390,515].forEach((ly,li)=>{
+    ctx.fillStyle='rgba(255,255,255,.018)';ctx.fillRect(wx(50),wy(ly-11),wx(880),wy(22));
+    ctx.strokeStyle='rgba(220,230,240,.13)';ctx.setLineDash([8,10]);
+    ctx.beginPath();ctx.moveTo(wx(50),wy(ly));ctx.lineTo(wx(930),wy(ly));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(150,165,185,.35)';ctx.font='7.5px JetBrains Mono';
+    ctx.fillText('LANE '+(li+1),wx(54),wy(ly-13));
+  });
+  /* 세로 통로 (블록 사이) */
+  [185,315,445,575,705].forEach(ax=>{
+    ctx.fillStyle='rgba(255,255,255,.015)';ctx.fillRect(wx(ax-9),wy(160),wx(18),wy(355));
+    ctx.strokeStyle='rgba(220,230,240,.08)';ctx.setLineDash([6,10]);
+    ctx.beginPath();ctx.moveTo(wx(ax),wy(164));ctx.lineTo(wx(ax),wy(512));ctx.stroke();ctx.setLineDash([]);
+  });
+  /* 충전 복도 (우측 세로) */
+  ctx.fillStyle='rgba(255,255,255,.015)';ctx.fillRect(wx(928),wy(160),wx(14),wy(355));
+  ctx.strokeStyle='rgba(220,230,240,.1)';ctx.setLineDash([8,10]);
+  ctx.beginPath();ctx.moveTo(wx(935),wy(164));ctx.lineTo(wx(935),wy(512));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(150,165,185,.35)';ctx.font='7.5px JetBrains Mono';
+  ctx.fillText('CHG CORRIDOR',wx(924),wy(156));
+
+  /* ================= 컨테이너 야드 (장대 스택) ================= */
+  yardAnchors.forEach((p,bi)=>{
+    const x0=wx(p.x-50),y0=wy(p.y-46),bw=wx(100),bh=wy(92);
+    ctx.strokeStyle='rgba(200,214,232,.12)';ctx.strokeRect(x0,y0,bw,bh);
+    if(bi%9===4){
+      ctx.fillStyle='rgba(255,255,255,.028)';ctx.fillRect(x0,y0,bw,bh);
+      ctx.strokeStyle='rgba(200,214,232,.22)';
+      ctx.beginPath();ctx.moveTo(x0,y0+bh/2);ctx.lineTo(x0+bw,y0+bh/2);ctx.stroke();
+      ctx.fillStyle='rgba(150,165,185,.4)';ctx.font='7.5px JetBrains Mono';
+      ctx.fillText('WH',x0+4,y0+11);
+    }else{
+      for(let r=0;r<4;r++){
+        const rowY=y0+4+r*(bh-8)/6,rowH=(bh-8)/6-2;
+        for(let c=0;c<5;c++){
+          if((bi*7+r*5+c)%8===0)continue; /* 빈 슬롯 — 적재율 */
+          ctx.fillStyle=CONT[(bi*7+r*5+c)%CONT.length];ctx.globalAlpha=.5;
+          ctx.fillRect(x0+4+c*(bw-8)/5,rowY,(bw-8)/5-1.5,rowH);
+          ctx.globalAlpha=1;
+        }
+      }
+    }
+  });
+  ctx.fillStyle='rgba(150,165,185,.5)';ctx.font='8.5px JetBrains Mono';
+  ctx.fillText('CY-A — 컨테이너 야드',12,wy(190));
+  ctx.fillText('CY-B',12,wy(310));
+  ctx.fillText('CY-C',12,wy(430));
+
+  /* ================= 게이트 ================= */
+  ctx.fillStyle='rgba(232,163,61,.06)';ctx.fillRect(wx(880),wy(150),wx(42),wy(362));
+  ctx.strokeStyle='rgba(232,163,61,.35)';ctx.strokeRect(wx(880),wy(150),wx(42),wy(362));
+  ctx.save();ctx.translate(wx(902),wy(330));ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='rgba(232,163,61,.65)';ctx.font='9px JetBrains Mono';ctx.textAlign='center';
+  ctx.fillText('TRUCK GATE 1·2',0,3);ctx.restore();ctx.textAlign='left';
+
+  /* ================= 132kV 전력 버스 ================= */
+  ctx.strokeStyle='rgba(163,168,240,.3)';ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.moveTo(wx(860),wy(88));ctx.lineTo(wx(1100),wy(88));ctx.lineTo(wx(1100),wy(512));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(163,168,240,.55)';ctx.font='8.5px JetBrains Mono';
+  ctx.fillText('132kV BUS',wx(1106),wy(92));
+
+  /* 충전노드 */
+  nodes.forEach(n=>{
+    const x=wx(n.x),y=wy(n.y);
+    const util=(n.charging.length+Math.min(n.queue.length,6)/6)/n.cap;
+    const glow=ctx.createRadialGradient(x,y,2,x,y,26);
+    glow.addColorStop(0,`rgba(163,168,240,${.22+util*.28})`);glow.addColorStop(1,'rgba(163,168,240,0)');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,26,0,7);ctx.fill();
+    ctx.fillStyle='#a3a8f0';ctx.beginPath();ctx.arc(x,y,4.5,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(163,168,240,.55)';ctx.beginPath();ctx.arc(x,y,10,0,7);ctx.stroke();
+    ctx.fillStyle='rgba(125,140,163,.9)';ctx.font='8px JetBrains Mono';ctx.textAlign='center';
+    ctx.fillText(n.id,x,y+20);
+    if(n.queue.length>0){ctx.fillStyle='#e8a33d';ctx.font='8px JetBrains Mono';ctx.fillText('×'+n.queue.length,x+18,y-10)}
+    if(n.kw>0){ctx.strokeStyle='rgba(163,168,240,.4)';ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-wy(500)+wy(80));ctx.stroke()}
+  });
+
+  /* --- 스웜 메시: 근접 에이전트 간 통신 링크 (미래형 네트워크) --- */
+  {
+    const R=92, R2=R*R;
+    ctx.lineWidth=1.2;
+    let drawn=0;
+    for(let i=0;i<agents.length&&drawn<1100;i++){
+      const a=agents[i]; if(!a.electric)continue;
+      const ax=a.x, ay=a.y;
+      for(let j=i+1;j<agents.length;j++){
+        const b2=agents[j]; if(!b2.electric)continue;
+        const dx=b2.x-ax, dy=b2.y-ay, d2=dx*dx+dy*dy;
+        if(d2<R2){
+          const t=1-Math.sqrt(d2)/R;
+          ctx.strokeStyle=`rgba(148,175,214,${(0.10+t*0.52).toFixed(3)})`;
+          ctx.beginPath();ctx.moveTo(wx(ax),wy(ay));ctx.lineTo(wx(b2.x),wy(b2.y));ctx.stroke();
+          if(++drawn>1100)break;
+        }
+      }
+    }
+    ctx.lineWidth=1;
+  }
+
+  /* --- 충전 노드 ↔ 에이전트 에너지 빔 --- */
+  agents.forEach(a=>{
+    if((a.state==='charge'||a.state==='queue')&&a.chgNode){
+      const n=a.chgNode;
+      const grad=ctx.createLinearGradient(wx(a.x),wy(a.y),wx(n.x),wy(n.y));
+      const hot=a.state==='charge';
+      grad.addColorStop(0,hot?'rgba(232,163,61,.55)':'rgba(232,163,61,.14)');
+      grad.addColorStop(1,hot?'rgba(163,168,240,.55)':'rgba(163,168,240,.10)');
+      ctx.strokeStyle=grad;
+      ctx.setLineDash(hot?[]:[3,5]);
+      ctx.beginPath();ctx.moveTo(wx(a.x),wy(a.y));ctx.lineTo(wx(n.x),wy(n.y));ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  /* 에이전트 */
+  agents.forEach(a=>{
+    const x=wx(a.x),y=wy(a.y);
+    if(a.state==='charge'){
+      ctx.strokeStyle='rgba(232,163,61,.8)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(x,y,7.5+Math.sin(simSec*6)*2,0,7);ctx.stroke();ctx.lineWidth=1;
+    }
+    /* 소프트 헤일로 */
+    ctx.fillStyle=a.state==='queue'||a.state==='charge'?'rgba(232,163,61,.20)':(a.electric?'rgba(108,158,248,.16)':'rgba(120,130,150,.10)');
+    ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill();
+    /* 코어 */
+    ctx.fillStyle=a.state==='queue'||a.state==='charge'?'#fbbf24':a.col;
+    ctx.beginPath();ctx.arc(x,y,a.type==='truck'?4.2:3.4,0,7);ctx.fill();
+    if(a.electric&&a.soc<0.22&&Math.sin(simSec*4)>0){
+      ctx.strokeStyle='rgba(229,101,126,.75)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.stroke();ctx.lineWidth=1;
+    }
+  });
+}
+
+/* ================================================================
+   렌더 — 우측 차트 (캔버스 크기는 한 번만 설정 → 깜빡임 제거)
+================================================================ */
+function chartSize(canvas){
+  const r=canvas.getBoundingClientRect();const dpr=devicePixelRatio||1;
+  const H=parseInt(canvas.getAttribute('height'));
+  canvas.width=Math.max(10,r.width*dpr);canvas.height=H*dpr;
+  canvas.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  canvas._W=r.width;canvas._H=H;
+}
+function chartFit(){['c-load','c-queue','c-soc'].forEach(id=>chartSize($(id)))}
+
+function lineChart(canvas,data,max,color){
+  const c=canvas.getContext('2d');
+  const W=canvas._W,H=canvas._H;
+  c.clearRect(0,0,W,H);
+  c.strokeStyle='rgba(39,52,73,.8)';
+  for(let g=1;g<3;g++){c.beginPath();c.moveTo(0,H*g/3);c.lineTo(W,H*g/3);c.stroke()}
+  if(data.length<2)return;
+  const px=i=>i/(data.length-1)*(W-30);
+  const py=v=>H-4-(Math.min(v,max)/max)*(H-10);
+  /* 부드러운 곡선 (중점 2차 베지어) */
+  c.beginPath();c.moveTo(px(0),py(data[0]));
+  for(let i=1;i<data.length-1;i++){
+    const x1=px(i),y1=py(data[i]),x2=px(i+1),y2=py(data[i+1]);
+    c.quadraticCurveTo(x1,y1,(x1+x2)/2,(y1+y2)/2);
+  }
+  c.lineTo(px(data.length-1),py(data[data.length-1]));
+  c.strokeStyle=color;c.lineWidth=1.4;c.stroke();
+  c.lineTo(W-30,H);c.lineTo(0,H);c.closePath();
+  c.globalAlpha=.10;c.fillStyle=color;c.fill();c.globalAlpha=1;
+  /* 현재값 라벨 */
+  const last=data[data.length-1];
+  c.fillStyle=color;c.font='8.5px JetBrains Mono';c.textAlign='left';
+  c.fillText(last>=100?last.toFixed(0):last.toFixed(1),W-27,py(last)+3);
+}
+function histChart(canvas,bins,color){
+  const c=canvas.getContext('2d');
+  const W=canvas._W,H=canvas._H;
+  c.clearRect(0,0,W,H);
+  const max=Math.max(...bins,1);
+  const bw=W/bins.length;
+  bins.forEach((v,i)=>{
+    const h=(v/max)*(H-14);
+    c.fillStyle=i<3?'rgba(229,101,126,.75)':color;
+    c.fillRect(i*bw+1.5,H-12-h,bw-3,h);
+  });
+  c.fillStyle='rgba(75,90,114,.9)';c.font='7.5px JetBrains Mono';
+  c.fillText('0%',2,H-2);c.fillText('50%',W/2-8,H-2);c.fillText('100%',W-26,H-2);
+}
+
+/* ================================================================
+   충전소 테이블
+================================================================ */
+function renderTbl(){
+  $('chgtbl').innerHTML=nodes.map(n=>{
+    const util=n.charging.length/n.cap;
+    const st=n.charging.length>=n.cap?(n.queue.length>4?'<span style="color:var(--bad)">CONGESTED</span>':'<span style="color:var(--warn)">FULL</span>'):'<span style="color:var(--ok)">OK</span>';
+    return `<tr>
+      <td>${n.id} <span style="color:var(--dim)">· PP-NODE</span></td>
+      <td>${n.cap}</td>
+      <td>${n.charging.length}</td>
+      <td>${n.queue.length}</td>
+      <td>${(util*100).toFixed(0)}%<span class="bar-cell" style="width:${util*36}px;background:${util>0.9?'var(--bad)':util>0.6?'var(--warn)':'var(--acc)'}"></span></td>
+      <td>${n.kw.toFixed(0)}</td>
+      <td>${st}</td></tr>`;
+  }).join('');
+}
+
+/* ================================================================
+   루프
+================================================================ */
+let acc=0,last=performance.now(),chartTimer=0;
+function loop(now){
+  const dt=now-last;last=now;
+  if(running){
+    acc+=dt*speed;            // 시뮬 시간 가속
+    let steps=0;
+    while(acc>1000&&steps<8){step();acc-=1000;steps++} // 1스텝=시뮬 1초
+  }
+  drawMap();
+  /* 차트/테이블은 벽시계 500ms 주기로만 갱신 (깜빡임·과다 리사이즈 방지) */
+  chartTimer+=dt;
+  if(chartTimer>500){
+    chartTimer=0;
+    lineChart($('c-load'),loadHist.concat(loadNow),S.gridCap*0.9,'rgba(236,238,242,1)');
+    lineChart($('c-queue'),queueHist.concat(curQueue),40,'rgba(232,163,61,1)');
+    const bins=new Array(10).fill(0);
+    agents.forEach(a=>{if(a.electric)bins[Math.min(9,a.soc*10|0)]++});
+    histChart($('c-soc'),bins,'rgba(108,158,248,.75)');
+    renderTbl();
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 이벤트 ---------- */
+$('runbtn').onclick=()=>{running=!running;$('runbtn').textContent=running?'⏸ PAUSE':'▶ RUN';
+  log(running?'ok':'w',running?'✓ 시뮬레이션 재개':'⏸ 시뮬레이션 일시정지')};
+document.querySelectorAll('.scn-btn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.scn-btn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');scnKey=b.dataset.scn;S=SCN[scnKey];
+  initNodes();initAgents();
+  peak=0;loadHist=[];queueHist=[];jobsDone=0;jobsMissed=0;
+  agents.forEach(a=>a.waits=[]);
+  log('i',`▸ 시나리오 로드 — ${S.label} · EV율 ${(S.ev*100)|0}% · 충전기 ${S.chargers}기 · ${S.smart?'스마트충전':''}${S.ess?' + ESS':''}`);
+  log('w',`⚠ 그리드 상한 ${S.gridCap} MW · 전력 버스 재구성`);
+});
+addEventListener('resize',()=>{fitMap();chartFit()});
+
+/* ---------- 시작 ---------- */
+fitMap();chartFit();initNodes();initAgents();
+log('ok','✓ 디지털 트윈 부트 — Mesa 엔진 로드');
+log('i','▸ 에이전트 500대 스폰 (AGV 210 · YT 150 · 전기트럭 140)');
+log('i','▸ pandapower 가상 배전망 연결 — 132kV 버스 ×3');
+log('e','⚓ 선박 3척 스케줄 로드 — AMP 2척 접속 예정');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
